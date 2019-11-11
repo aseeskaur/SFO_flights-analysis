@@ -1,0 +1,314 @@
+---
+title: "Stat 650 Final Project"
+author: 'Asees Kaur,net id: rh7442'
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+---
+```{r, warning=FALSE,message=FALSE}
+library(pacman)
+p_load(tidyverse, nycflights13,knitr)
+library(textreadr)
+library(nycflights13)
+```
+
+
+##Reading the names and the descriptions of the variables from the FAA from website using the read_html() function. 
+
+```{r}
+names <- read_html("readme.html")
+
+head(names)
+
+# Remove the top four lines.
+
+names <- names[-c(1,2,3,4)]
+
+head(names)
+
+#Creating a matrix that contains variable names in column 1 and description in column 2.
+
+faa_names <- matrix(names[1:218], ncol = 2, byrow = TRUE)
+
+head(faa_names)
+
+sfo_names <- tibble(variable_names = faa_names[,1], description = faa_names[,2])
+kable(head(sfo_names))
+ 
+sfo_names <- sfo_names %>% mutate(variable_names = tolower(variable_names))
+
+kable(head(sfo_names))
+
+```
+
+#The given code to get the names and descriptions of the variables in the nycflights13 dataset. 
+
+```{r}
+nycflights13_names <- tribble(
+  ~variable_names, ~Description,
+  'year', 'Year of departure. - year',
+  'month', 'Month of departure. - month',
+  'day', 'Day of departure.',
+  'dep_time', 'Actual departure time (format HHMM or HMM), local tz.',
+  'arr_time', 'Actual  arrival time (format HHMM or HMM), local tz.',
+  'sched_dep_time', 'Scheduled departure time (format HHMM or HMM), local tz.',
+  'sched_arr_time', 'Scheduled  arrival time (format HHMM or HMM), local tz.',
+  'dep_delay', 'Departure delays, in minutes.Negative times represent early departures.',
+  'arr_delay', 'arrival delays, in minutes.Negative times represent early arrivals.',
+  'carrier', 'Two letter carrier abbreviation. See airlines to get name.',
+  'flight', 'Flight number.',
+  'tailnum', 'Plane tail number. See planes for additional metadata.',
+  'origin', 'Origin and destination. See airports for additional metadata.',
+  'dest', 'Origin and destination. See airports for additional metadata.',
+  'air_time', 'Amount of time spent in the air, in minutes.',
+  'distance', 'Distance between airports, in miles.',
+  'hour', 'Time of scheduled departure broken into hour and minutes. - hour',
+  'minute', 'Time of scheduled departure broken into hour and minutes. minute',
+  'time_hour', 'Scheduled date and hour of the flight as a POSIXct date. Along with origin, can be used to join flights data to weather data.'
+)
+
+kable(nycflights13_names)
+
+
+```
+
+
+#recoding the names of the nycflights13 data set to match with the FAA variable names. 
+
+```{r}
+
+nycflights13_names <- nycflights13_names %>% mutate(variable_names = as_factor(variable_names))
+
+
+nycflights13_names$variable_names %>% levels()
+nycflights13_names$variable_names %>% nlevels()
+
+nycflights13_names$variable_names <- nycflights13_names$variable_names %>%
+  fct_recode("dayofmonth" = "day",
+             "deptime"    = "dep_time",
+             "arrtime"    = "arr_time",
+             "crsdeptime" = "sched_dep_time",
+             "crsarrtime" = "sched_arr_time",
+             "depdelay"   = "dep_delay",
+             "arrdelay"   = "arr_delay",
+             "reporting_airline" = "carrier",
+             "flight_number_reporting_airline" = "flight",
+             "tail_number"= "tailnum",
+             "airtime"    = "air_time"
+             ) 
+
+kable(nycflights13_names)
+
+```
+
+
+
+##Reading the data of flights from FAA in and filtering for the required Bay Area Airports(San Francisco, Oakland and San Jose)
+
+##I only read the data for first 3 months of 2018. 
+
+```{r}
+
+faa_jan <- read.csv("data/On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_2018_1.csv")
+sfoflights_jan <- faa_jan %>% filter(Origin == "SFO"| Origin == "SJC" | Origin == "OAK")
+
+faa_feb <- read.csv("data/On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_2018_2.csv")
+sfoflights_feb <- faa_feb %>% filter(Origin == "SFO"| Origin == "SJC" | Origin == "OAK")
+
+faa_mar <- read.csv("data/On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_2018_3.csv")
+sfoflights_mar <- faa_mar %>% filter(Origin == "SFO"| Origin == "SJC" | Origin == "OAK")
+```
+
+
+#Combining the filtered data into one data set using the rbind() function. 
+
+```{r}
+sfoflights18 <- rbind(sfoflights_jan,sfoflights_feb,sfoflights_mar)
+kable(head(sfoflights18))
+
+dim(sfoflights18)
+
+```
+
+
+\newpage 
+
+**Question 1:**
+
+Find the US Government website where Airline On-Time Performance Data can be downloaded. What website is this and how can you download the data? Download the data for the available months in 2018 for the Bay Area. Can you do this? If not, what can you download?
+
+**Answer 1:** 
+
+The US government website to get to the data is [Airline On-Time Performance](https://www.transtats.bts.gov/DL_SelectFields.asp?Table_ID=236). We have to select the variables that we would like to have in our data set and then download the data file, but you can only do this month by month. I was not able to download the data so I used it from the data provided through Blackboard, and due to the limited space in my machine I only used the data for first 3 months of 2018. 
+
+
+\newpage
+
+**Question 2:** 
+
+Once you have your data downloaded, develop your code for the first month of data. The last step will be to merge the data and perform an overall analysis for 2018. Extract the flights that departed from the Bay Area. Include all flights departing from San Francisco, Oakland, and San Jose. How many flight were there in January 2018?
+
+**Answer 2:**
+
+There were 22274 flights in January 2018 that departed from the Bay Area Airports. 
+
+```{r}
+sfoflights18 %>%
+  filter(Month == 1) %>% 
+  filter(Cancelled == 0) %>% count()
+```
+
+
+\newpage
+
+**Question 3:**
+
+Compare the variables that are available in the full dataset with the variables in the nycflgihts13 data set. Make a table of the variables that are in both datasets, with a description of each variable. Hint: In RStudio see Help > RMarkdown Quick Reference > Tables. Report the intersection of the variables.
+
+**Answer 3:**
+
+Using the inner_join() function to find out the common variable names in both the datasets.
+
+```{r}
+common_names <- inner_join(nycflights13_names, sfo_names,"variable_names") %>% 
+  select(variable_names, Description) 
+
+kable(common_names)
+
+```
+
+\newpage
+
+**Question 4:**
+
+What new variables do you now also have? Make a table of the variables that are in the new dataset (that could also be downloaded from the website), with a description of each variable. (Ok, this is kind of long. Make a table for 10 other variables you consider important.)
+
+**Answer 4:**
+
+```{r}
+not_common <- anti_join(sfo_names, nycflights13_names,  "variable_names")
+kable(not_common %>% 
+  filter(variable_names == "quarter" | 
+           variable_names == "dayofweek"|
+           variable_names=="originstatename"|
+           variable_names=="deststatename"| 
+           variable_names == "cancelled"|
+           variable_names == "diverted"|
+           variable_names == "flights"|
+           variable_names == "weatherdelay"|
+           variable_names=="lateaircraftdelay" |
+           variable_names == "divairportlandings"
+         )
+  )
+
+```
+
+\newpage 
+
+
+**Question 5:**
+
+Answer Exercises 4.2, 4.3, 4.4 (you may only be able to answer part of 4.4) on page 89 of the book, changing nycflights13 to sfoflights18. Answer all of the questions for the SF Bay Area in 2018.
+
+**Answer 5:**
+
+
+
+##Exercise 4.2: 
+
+What month had the highest proportion of cancelled flights? What month had the lowest? Interpret any seasonal patterns.
+
+##Answer 4.2:
+
+Out of the first 3 months March(Month == 3) has the highest proportion of the cancelled flights and Feburary(Month == 2) had the least proportion of the cancelled flights.
+
+
+
+```{r}
+kable(sfoflights18 %>%
+  select(Month,Cancelled) %>% 
+  group_by(Month) %>%
+  summarise(mean_cancelled = mean(Cancelled == 1)) )
+```
+
+
+
+##Exercise 4.3
+
+What plane (specified by the tail_number variable) traveled the most times from Bay Area airports in 2018? Plot the number of trips per week over the year.
+
+##Answer 4.3: 
+
+Plane N633VA travelled the most times from Bay Area airports(SFO,OAK,SJC) in 2018.
+
+```{r}
+kable(sfoflights18 %>% 
+  filter(Cancelled == 0)  %>% 
+  select(Tail_Number) %>%
+  group_by(Tail_Number) %>%
+  count() %>% 
+  arrange(desc(n)) %>% 
+  head(1))
+```
+
+
+```{r}
+ kable(sfoflights2 <- sfoflights18 %>% 
+  mutate( week = as.integer(format(as.Date(FlightDate), "%U"))  ) %>% 
+   filter(Tail_Number == "N633VA") %>% 
+  group_by(week) %>% tally())
+
+  ggplot(sfoflights2,aes(x=week, y=n)) +
+  geom_point() +
+  geom_line() +
+  geom_smooth() +
+    labs(x="Week of the year", y = "Number of trips", 
+         title = "Number of trips per week of N633VA from NYC airports")
+
+```
+
+
+##Exercise 4.4 
+
+ What is the oldest plane (specified by the Tail_Number variable) that flew from Bay Area airports in 2018? How many airplanes that flew from Bay Area are included in the planes table?
+ 
+
+##Answer 4.4: 
+
+The oldest plane that flew from Bay Area Airports in 2018 was N505UA which was manufactured in 1989. 
+
+```{r}
+plane_year <- planes %>% 
+  rename( year_manuf = year )
+
+
+
+kable(plane_year %>%
+      right_join(sfoflights18, by = c("tailnum"="Tail_Number") )%>%
+  filter(!is.na(year_manuf)) %>%
+      arrange(year_manuf) %>%
+      select(tailnum, year_manuf) %>% 
+   distinct() %>% 
+  filter(tailnum == tailnum[1]))
+```
+
+
+The number of airplanes that flew from the Bay Area Airports and are included in the planes table is 1762.
+
+
+```{r}
+kable(sfoflights18 %>% 
+  inner_join(plane_year, by = c("Tail_Number" = "tailnum")) %>% 
+  filter(Cancelled == 0) %>% 
+  distinct(Tail_Number) %>%  
+  summarise(n = n()))
+```
+
+
+
+
+
+
